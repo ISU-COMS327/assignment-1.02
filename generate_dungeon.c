@@ -5,18 +5,18 @@
 
 #define HEIGHT 105
 #define WIDTH 160
-#define IMMUTABLE_ROCK -1
-#define ROCK 0
-#define ROOM 1
-#define CORRIDOR 2
+#define IMMUTABLE_ROCK 255
+#define ROCK 200
+#define ROOM -1
+#define CORRIDOR 0
 #define MIN_NUMBER_OF_ROOMS 10
 #define MAX_NUMBER_OF_ROOMS 25
 #define MIN_ROOM_WIDTH 7
 #define DEFAULT_MAX_ROOM_WIDTH 15
 #define MIN_ROOM_HEIGHT 5
-#define DEFAULT_MAX_ROOM_HEIGHT 13 
+#define DEFAULT_MAX_ROOM_HEIGHT 13
 
-int board[HEIGHT][WIDTH] = {{ROCK}};
+int board[HEIGHT][WIDTH];
 int NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
 int MAX_ROOM_WIDTH = DEFAULT_MAX_ROOM_WIDTH;
 int MAX_ROOM_HEIGHT = DEFAULT_MAX_ROOM_HEIGHT;
@@ -29,6 +29,7 @@ struct Room {
 };
 
 int random_int(int min_num, int max_num, int add_to_seed);
+void initialize_board();
 void initialize_immutable_rock();
 void print_board();
 void print_cell();
@@ -53,7 +54,7 @@ int main(int argc, char *args[]) {
                 exit(0);
         }
     }
-    
+
     printf("Generating dungeon... \n");
 
     // Determine # of rooms
@@ -69,6 +70,7 @@ int main(int argc, char *args[]) {
     printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
 
     // Generate board
+    initialize_board();
     initialize_immutable_rock();
     dig_rooms(NUMBER_OF_ROOMS);
     dig_cooridors();
@@ -85,6 +87,14 @@ int random_int(int min_num, int max_num, int add_to_seed) {
     int delta = max_num - min_num;
     srand(seed);
     return (rand() % delta) + min_num;
+}
+
+void initialize_board() {
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            board[y][x] = ROCK;
+        }
+    }
 }
 
 void initialize_immutable_rock() {
@@ -134,7 +144,7 @@ void dig_rooms(int number_of_rooms_to_dig) {
 }
 
 void dig_room(int index, int recursive_iteration) {
-    // The index + recusrive_iteration is just a way to gain variety in the 
+    // The index + recusrive_iteration is just a way to gain variety in the
     // random number. The hope is that it makes the program run faster.
     int start_x = random_int(0, WIDTH - MIN_ROOM_WIDTH - 1, index + recursive_iteration * 10);
     int start_y = random_int(0, HEIGHT - MIN_ROOM_HEIGHT - 1, index + recursive_iteration / 10);
@@ -143,12 +153,12 @@ void dig_room(int index, int recursive_iteration) {
     int end_y = start_y + room_height;
     if (end_y >= HEIGHT - 1) {
         end_y = HEIGHT - 2;
-        
+
     }
     int end_x = start_x + room_width;
     if (end_x >= WIDTH - 1) {
         end_x = WIDTH - 2;
-        
+
     }
     int height = end_y - start_y;
     int height_diff = MIN_ROOM_HEIGHT - height;
@@ -202,7 +212,7 @@ void add_rooms_to_board() {
                 board[y][x] = ROOM;
             }
         }
-    } 
+    }
 }
 
 void dig_cooridors() {
