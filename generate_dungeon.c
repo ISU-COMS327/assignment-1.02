@@ -1,3 +1,5 @@
+#include <stdint.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,6 +19,9 @@
 #define DEFAULT_MAX_ROOM_HEIGHT 13
 
 int board[HEIGHT][WIDTH];
+int DO_SAVE = 0;
+int DO_LOAD = 0;
+int SHOW_HELP = 0;
 int NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
 int MAX_ROOM_WIDTH = DEFAULT_MAX_ROOM_WIDTH;
 int MAX_ROOM_HEIGHT = DEFAULT_MAX_ROOM_HEIGHT;
@@ -28,9 +33,12 @@ struct Room {
     int end_y;
 };
 
+void print_usage();
+void update_number_of_rooms();
 int random_int(int min_num, int max_num, int add_to_seed);
 void initialize_board();
 void initialize_immutable_rock();
+void load_board();
 void print_board();
 void print_cell();
 void dig_rooms(int number_of_rooms_to_dig);
@@ -42,22 +50,51 @@ void connect_rooms_at_indexes(int index1, int index2);
 struct Room rooms[MAX_NUMBER_OF_ROOMS];
 
 int main(int argc, char *args[]) {
-    // Parse arguments
-    int opt;
-    while((opt = getopt(argc, args, "hn:")) != -1) {
-        switch(opt) {
-            case 'n':
+    struct option longopts[] = {
+        {"save", no_argument, &DO_SAVE, 1},
+        {"load", no_argument, &DO_LOAD, 1},
+        {"rooms", required_argument, 0, 'r'},
+        {"help", no_argument, &SHOW_HELP, 'h'},
+        {0, 0, 0, 0}
+    };
+    int c;
+    while((c = getopt_long(argc, args, "h:", longopts, NULL)) != -1) {
+        switch(c) {
+            case 'r':
                 NUMBER_OF_ROOMS = atoi(optarg);
                 break;
             case 'h':
-                printf("usage: generate_dungeon [-n <number of rooms>]\n\n");
-                exit(0);
+                SHOW_HELP = 1;
+                break;
+            default:
+                break;
         }
     }
 
+    if (SHOW_HELP) {
+        print_usage();
+        exit(0);
+    }
     printf("Generating dungeon... \n");
+    update_number_of_rooms();
+    printf("Save: %d, Load: %d, Room: %d\n\n", DO_SAVE, DO_LOAD, NUMBER_OF_ROOMS);
+    printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
+    initialize_board();
 
-    // Determine # of rooms
+    if (DO_LOAD) {
+        load_board();
+    }
+    else {
+        dig_rooms(NUMBER_OF_ROOMS);
+        dig_cooridors();
+    }
+
+    print_board();
+
+    return 0;
+}
+
+void update_number_of_rooms() {
     if (NUMBER_OF_ROOMS < MIN_NUMBER_OF_ROOMS) {
         printf("Minimum number of rooms is %d\n", MIN_NUMBER_OF_ROOMS);
         NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
@@ -66,16 +103,11 @@ int main(int argc, char *args[]) {
         printf("Maximum number of rooms is %d\n", MAX_NUMBER_OF_ROOMS);
         NUMBER_OF_ROOMS = MAX_NUMBER_OF_ROOMS;
     }
+}
 
-    printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
-
-    // Generate board
-    initialize_board();
-    initialize_immutable_rock();
-    dig_rooms(NUMBER_OF_ROOMS);
-    dig_cooridors();
-    print_board();
-    return 0;
+void print_usage() {
+    // TODO update with valuable usage
+    printf("Printing usage\n");
 }
 
 int random_int(int min_num, int max_num, int add_to_seed) {
@@ -95,6 +127,7 @@ void initialize_board() {
             board[y][x] = ROCK;
         }
     }
+    initialize_immutable_rock();
 }
 
 void initialize_immutable_rock() {
@@ -110,6 +143,29 @@ void initialize_immutable_rock() {
         board[0][x] = IMMUTABLE_ROCK;
         board[max_y][x] = IMMUTABLE_ROCK;
     }
+}
+
+void load_board() {
+    printf("Loading board!\n");
+    FILE *fp;
+    char title[13]; // one extra index for the null value at the end
+    uint32_t version;
+    uint32_t file_size;
+
+    // Get title
+    fp = fopen("test_dungeons/01.rlg327", "r");
+    fread(title, 1, 12, fp);
+    printf("\ntitle: %s\n", title);
+
+    // Get version
+    fread(&version, 4, 1, fp);
+    version = ntohl(version);
+    printf("vers: %u\n", version);
+
+    // Get file size
+    fread(&file_size, 4, 1, fp);
+    file_size = ntohl(file_size);
+    printf("file size: %u\n", file_size);
 }
 
 void print_board() {
