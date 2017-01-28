@@ -250,8 +250,7 @@ void load_board() {
 }
 
 void print_usage() {
-    // TODO update with valuable usage
-    printf("Printing usage\n");
+    printf("usage: generate_dungeon [--save] [--load] [--rooms=<number of rooms>]\n");
 }
 
 int random_int(int min_num, int max_num, int add_to_seed) {
