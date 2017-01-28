@@ -30,14 +30,15 @@ typedef struct {
 } Board_Cell;
 
 struct Room {
-    int start_x;
-    int end_x;
-    int start_y;
-    int end_y;
+    uint8_t start_x;
+    uint8_t end_x;
+    uint8_t start_y;
+    uint8_t end_y;
 };
 
 Board_Cell board[HEIGHT][WIDTH];
 struct Room * rooms;
+char * RLG_DIRECTORY;
 
 int DO_SAVE = 0;
 int DO_LOAD = 0;
@@ -89,18 +90,17 @@ int main(int argc, char *args[]) {
         print_usage();
         exit(0);
     }
-    printf("Generating dungeon... \n");
+    printf("Received Parameters: Save: %d, Load: %d, #Rooms: %d\n\n", DO_SAVE, DO_LOAD, NUMBER_OF_ROOMS);
     update_number_of_rooms();
-    printf("Save: %d, Load: %d, Room: %d\n\n", DO_SAVE, DO_LOAD, NUMBER_OF_ROOMS);
-    printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
     initialize_board();
-
     make_rlg_directory();
 
     if (DO_LOAD) {
         load_board();
     }
     else {
+        printf("Generating dungeon... \n");
+        printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
         rooms = malloc(sizeof(struct Room) * NUMBER_OF_ROOMS);
         dig_rooms(NUMBER_OF_ROOMS);
         dig_cooridors();
@@ -129,10 +129,124 @@ void update_number_of_rooms() {
 void make_rlg_directory() {
     char * home = getenv("HOME");
     char dir[] = "/.rlg327/";
-    char * full_dir = malloc(strlen(home) + strlen(dir));
-    strcat(full_dir, home);
-    strcat(full_dir, dir);
-    mkdir(full_dir, 0777);
+    RLG_DIRECTORY = malloc(strlen(home) + strlen(dir));
+    strcat(RLG_DIRECTORY, home);
+    strcat(RLG_DIRECTORY, dir);
+    mkdir(RLG_DIRECTORY, 0777);
+}
+
+void save_board() {
+    char filename[] = "dungeon";
+    char * filepath = malloc(strlen(filename) + strlen(RLG_DIRECTORY));
+    strcat(filepath, RLG_DIRECTORY);
+    strcat(filepath, filename);
+    printf("Saving file to: %s\n", filepath);
+    FILE * fp = fopen(filepath, "wb+");
+    if (fp == NULL) {
+        printf("Cannot save file\n");
+        return;
+    }
+    char * file_marker = "RLG327-S2017";
+    uint32_t version = htonl(0);
+    uint32_t file_size = htonl(16820 + (NUMBER_OF_ROOMS * 4));
+
+    fwrite(file_marker, 1, strlen(file_marker), fp);
+    fwrite(&version, 1, 4, fp);
+    fwrite(&file_size, 1, 4, fp);
+    for (int y = 0; y < HEIGHT; y++) {
+        for (int x = 0; x < WIDTH; x++) {
+            uint8_t num = board[y][x].hardness;
+            fwrite(&num, 1, 1, fp);
+        }
+    }
+
+    for (int i = 0; i < NUMBER_OF_ROOMS; i++) {
+        struct Room room = rooms[i];
+        uint8_t height = room.end_y - room.start_y + 1;
+        uint8_t width = room.end_x - room.start_x + 1;
+        fwrite(&room.start_x, 1, 1, fp);
+        fwrite(&room.start_y, 1, 1, fp);
+        fwrite(&(width), 1, 1, fp);
+        fwrite(&(height), 1, 1, fp);
+    }
+    fclose(fp);
+}
+
+void load_board() {
+    char filename[] = "dungeon";
+    char * filepath = malloc(strlen(filename) + strlen(RLG_DIRECTORY));
+    strcat(filepath, RLG_DIRECTORY);
+    strcat(filepath, filename);
+    printf("Loading dungeon: %s\n", filepath);
+    FILE *fp = fopen(filepath, "r");
+    if (fp == NULL) {
+        printf("Cannot load '%s'\n", filepath);
+        exit(1);
+    }
+    char title[13]; // one extra index for the null value at the end
+    uint32_t version;
+    uint32_t file_size;
+
+
+    // Get title
+    fread(title, 1, 12, fp);
+
+    // Get version
+    fread(&version, 4, 1, fp);
+    version = ntohl(version);
+
+    // Get file size
+    fread(&file_size, 4, 1, fp);
+    file_size = ntohl(file_size);
+
+    printf("File Marker: %s :: Version: %d :: File Size: %d bytes\n", title, version, file_size);
+
+    uint8_t num;
+    int x = 0;
+    int y = 0;
+    for (int i = 0; i < 16800; i++) {
+        fread(&num, 1, 1, fp);
+        Board_Cell cell;
+        cell.hardness = num;
+        if (num == 0) {
+            cell.type = TYPE_CORRIDOR;
+        }
+        else {
+            cell.type = TYPE_ROCK;
+        }
+        board[y][x] = cell;
+        if (x == WIDTH - 1) {
+            x = 0;
+            y ++;
+        }
+        else {
+            x ++;
+        }
+    }
+
+    uint8_t start_x;
+    uint8_t start_y;
+    uint8_t width;
+    uint8_t height;
+    NUMBER_OF_ROOMS = (file_size - ftell(fp)) / 4;
+    rooms = malloc(sizeof(struct Room) * NUMBER_OF_ROOMS);
+    int counter = 0;
+    while(ftell(fp) != file_size) {
+        fread(&start_x, 1, 1, fp);
+        fread(&start_y, 1, 1, fp);
+        fread(&width, 1, 1, fp);
+        fread(&height, 1, 1, fp);
+
+        struct Room room;
+        room.start_x = start_x;
+        room.start_y = start_y;
+        room.end_x = start_x + width - 1;
+        room.end_y = start_y + height - 1;
+        rooms[counter] = room;
+        counter ++;
+    }
+    add_rooms_to_board();
+    fclose(fp);
 }
 
 void print_usage() {
@@ -179,79 +293,6 @@ void initialize_immutable_rock() {
         board[0][x] = cell;
         board[max_y][x] = cell;
     }
-}
-
-void load_board() {
-    printf("Loading board!\n");
-    FILE *fp;
-    char title[13]; // one extra index for the null value at the end
-    uint32_t version;
-    uint32_t file_size;
-
-    // Get title
-    fp = fopen("test_dungeons/goodwork.rlg327", "r");
-    fread(title, 1, 12, fp);
-    printf("\ntitle: %s\n", title);
-
-    // Get version
-    fread(&version, 4, 1, fp);
-    version = ntohl(version);
-    printf("vers: %u\n", version);
-
-    // Get file size
-    fread(&file_size, 4, 1, fp);
-    file_size = ntohl(file_size);
-    printf("file size: %u\n", file_size);
-    uint8_t num;
-    int x = 0;
-    int y = 0;
-    for (int i = 0; i < 16800; i++) {
-        fread(&num, 1, 1, fp);
-        Board_Cell cell;
-        cell.hardness = num;
-        if (num == 0) {
-            cell.type = TYPE_CORRIDOR;
-        }
-        else {
-            cell.type = TYPE_ROCK;
-        }
-        board[y][x] = cell;
-        if (x == WIDTH - 1) {
-            x = 0;
-            y ++;
-        }
-        else {
-            x ++;
-        }
-    }
-    printf("Done reading coordinates\n");
-
-    uint8_t start_x;
-    uint8_t start_y;
-    uint8_t width;
-    uint8_t height;
-    NUMBER_OF_ROOMS = (file_size - ftell(fp)) / 4;
-    rooms = malloc(sizeof(struct Room) * NUMBER_OF_ROOMS);
-    int counter = 0;
-    while(ftell(fp) != file_size) {
-        fread(&start_x, 1, 1, fp);
-        fread(&start_y, 1, 1, fp);
-        fread(&width, 1, 1, fp);
-        fread(&height, 1, 1, fp);
-
-        struct Room room;
-        room.start_x = start_x;
-        room.start_y = start_y;
-        room.end_x = start_x + width - 1;
-        room.end_y = start_y + height - 1;
-        rooms[counter] = room;
-        counter ++;
-    }
-    add_rooms_to_board();
-}
-
-void save_board() {
-    printf("Saving\n");
 }
 
 void print_board() {
