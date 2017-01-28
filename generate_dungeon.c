@@ -18,13 +18,14 @@
 #define MIN_ROOM_HEIGHT 5
 #define DEFAULT_MAX_ROOM_HEIGHT 13
 
-int board[HEIGHT][WIDTH];
-int DO_SAVE = 0;
-int DO_LOAD = 0;
-int SHOW_HELP = 0;
-int NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
-int MAX_ROOM_WIDTH = DEFAULT_MAX_ROOM_WIDTH;
-int MAX_ROOM_HEIGHT = DEFAULT_MAX_ROOM_HEIGHT;
+static char * TYPE_ROOM = "room";
+static char * TYPE_CORRIDOR = "corridor";
+static char * TYPE_ROCK = "rock";
+
+typedef struct {
+    int hardness;
+    char * type;
+} Board_Cell;
 
 struct Room {
     int start_x;
@@ -32,6 +33,16 @@ struct Room {
     int start_y;
     int end_y;
 };
+
+Board_Cell board[HEIGHT][WIDTH];
+int DO_SAVE = 0;
+int DO_LOAD = 0;
+int SHOW_HELP = 0;
+int NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
+int MAX_ROOM_WIDTH = DEFAULT_MAX_ROOM_WIDTH;
+int MAX_ROOM_HEIGHT = DEFAULT_MAX_ROOM_HEIGHT;
+
+
 
 void print_usage();
 void update_number_of_rooms();
@@ -122,9 +133,12 @@ int random_int(int min_num, int max_num, int add_to_seed) {
 }
 
 void initialize_board() {
+    Board_Cell cell;
+    cell.type = TYPE_ROCK;
+    cell.hardness = ROCK;
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-            board[y][x] = ROCK;
+            board[y][x] = cell;
         }
     }
     initialize_immutable_rock();
@@ -135,13 +149,16 @@ void initialize_immutable_rock() {
     int x;
     int max_x = WIDTH - 1;
     int max_y = HEIGHT - 1;
+    Board_Cell cell;
+    cell.type = TYPE_ROCK;
+    cell.hardness = IMMUTABLE_ROCK;
     for (y = 0; y < HEIGHT; y++) {
-        board[y][0] = IMMUTABLE_ROCK;
-        board[y][max_x] = IMMUTABLE_ROCK;
+        board[y][0] = cell;
+        board[y][max_x] = cell;
     }
     for (x = 0; x < WIDTH; x++) {
-        board[0][x] = IMMUTABLE_ROCK;
-        board[max_y][x] = IMMUTABLE_ROCK;
+        board[0][x] = cell;
+        board[max_y][x] = cell;
     }
 }
 
@@ -177,14 +194,14 @@ void print_board() {
     }
 }
 
-void print_cell(int cell) {
-    if (cell == ROCK || cell == IMMUTABLE_ROCK) {
+void print_cell(Board_Cell cell) {
+    if (cell.type == TYPE_ROCK) {
         printf(" ");
     }
-    else if (cell == ROOM) {
+    else if (cell.type == TYPE_ROOM) {
         printf(".");
     }
-    else if (cell == CORRIDOR) {
+    else if (cell.type == TYPE_CORRIDOR) {
         printf("#");
     }
     else {
@@ -261,11 +278,14 @@ int room_is_valid_at_index(int index) {
 }
 
 void add_rooms_to_board() {
+    Board_Cell cell;
+    cell.type = TYPE_ROOM;
+    cell.hardness = ROOM;
     for(int i = 0; i < NUMBER_OF_ROOMS; i++) {
         struct Room room = rooms[i];
         for (int y = room.start_y; y <= room.end_y; y++) {
             for(int x = room.start_x; x <= room.end_x; x++) {
-                board[y][x] = ROOM;
+                board[y][x] = cell;
             }
         }
     }
@@ -301,7 +321,7 @@ void connect_rooms_at_indexes(int index1, int index2) {
     while(1) {
         int random_num = random_int(0, RAND_MAX, cur_x + cur_y) >> 3;
         int move_y = random_num % 2 == 0;
-        if (board[cur_y][cur_x] != ROCK) {
+        if (board[cur_y][cur_x].type != TYPE_ROCK) {
             if (cur_y != end_y) {
                 cur_y += y_incrementer;
             }
@@ -313,7 +333,10 @@ void connect_rooms_at_indexes(int index1, int index2) {
             }
             continue;
         }
-        board[cur_y][cur_x] = CORRIDOR;
+        Board_Cell corridor_cell;
+        corridor_cell.type = TYPE_CORRIDOR;
+        corridor_cell.hardness = CORRIDOR;
+        board[cur_y][cur_x] = corridor_cell;
         if ((cur_y != end_y && move_y) || (cur_x == end_x)) {
             cur_y += y_incrementer;
         }
