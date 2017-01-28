@@ -13,11 +13,11 @@
 #define ROOM -1
 #define CORRIDOR 0
 #define MIN_NUMBER_OF_ROOMS 10
-#define MAX_NUMBER_OF_ROOMS 25
+#define MAX_NUMBER_OF_ROOMS 50
 #define MIN_ROOM_WIDTH 7
 #define DEFAULT_MAX_ROOM_WIDTH 15
 #define MIN_ROOM_HEIGHT 5
-#define DEFAULT_MAX_ROOM_HEIGHT 13
+#define DEFAULT_MAX_ROOM_HEIGHT 10
 
 static char * TYPE_ROOM = "room";
 static char * TYPE_CORRIDOR = "corridor";
@@ -36,6 +36,8 @@ struct Room {
 };
 
 Board_Cell board[HEIGHT][WIDTH];
+struct Room rooms[MAX_NUMBER_OF_ROOMS];
+
 int DO_SAVE = 0;
 int DO_LOAD = 0;
 int SHOW_HELP = 0;
@@ -56,10 +58,9 @@ void print_cell();
 void dig_rooms(int number_of_rooms_to_dig);
 void dig_room(int index, int recursive_iteration);
 int room_is_valid_at_index(int index);
-void add_rooms_to_board();
+void add_rooms_to_board(struct Room rooms_to_add[]);
 void dig_cooridors();
 void connect_rooms_at_indexes(int index1, int index2);
-struct Room rooms[MAX_NUMBER_OF_ROOMS];
 
 int main(int argc, char *args[]) {
     struct option longopts[] = {
@@ -171,7 +172,7 @@ void load_board() {
     uint32_t file_size;
 
     // Get title
-    fp = fopen("test_dungeons/01.rlg327", "r");
+    fp = fopen("test_dungeons/goodwork.rlg327", "r");
     fread(title, 1, 12, fp);
     printf("\ntitle: %s\n", title);
 
@@ -184,6 +185,53 @@ void load_board() {
     fread(&file_size, 4, 1, fp);
     file_size = ntohl(file_size);
     printf("file size: %u\n", file_size);
+    uint8_t num;
+    int x = 0;
+    int y = 0;
+    for (int i = 0; i < 16800; i++) {
+        fread(&num, 1, 1, fp);
+        Board_Cell cell;
+        cell.hardness = num;
+        if (num == 0) {
+            cell.type = TYPE_CORRIDOR;
+        }
+        else {
+            cell.type = TYPE_ROCK;
+        }
+        board[y][x] = cell;
+        if (x == WIDTH - 1) {
+            x = 0;
+            y ++;
+        }
+        else {
+            x ++;
+        }
+    }
+    printf("Done reading coordinates\n");
+
+    uint8_t start_x;
+    uint8_t start_y;
+    uint8_t width;
+    uint8_t height;
+    NUMBER_OF_ROOMS = (file_size - ftell(fp)) / 4;
+    struct Room my_rooms[NUMBER_OF_ROOMS];
+    int counter = 0;
+    while(ftell(fp) != file_size) {
+        printf("%lu\n", (unsigned long) ftell(fp));
+        fread(&start_x, 1, 1, fp);
+        fread(&start_y, 1, 1, fp);
+        fread(&width, 1, 1, fp);
+        fread(&height, 1, 1, fp);
+
+        struct Room room;
+        room.start_x = start_x;
+        room.start_y = start_y;
+        room.end_x = start_x + width - 1;
+        room.end_y = start_y + height - 1;
+        my_rooms[counter] = room;
+        counter ++;
+    }
+    add_rooms_to_board(my_rooms);
 }
 
 void print_board() {
@@ -214,7 +262,7 @@ void dig_rooms(int number_of_rooms_to_dig) {
     for (int i = 0; i < number_of_rooms_to_dig; i++) {
         dig_room(i, 0);
     }
-    add_rooms_to_board();
+    add_rooms_to_board(rooms);
 }
 
 void dig_room(int index, int recursive_iteration) {
@@ -278,7 +326,7 @@ int room_is_valid_at_index(int index) {
     return 1;
 }
 
-void add_rooms_to_board() {
+void add_rooms_to_board(struct Room rooms[]) {
     Board_Cell cell;
     cell.type = TYPE_ROOM;
     cell.hardness = ROOM;
