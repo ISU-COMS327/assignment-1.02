@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <errno.h>
 #include <string.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -133,7 +132,7 @@ void make_rlg_directory() {
     char * full_dir = malloc(strlen(home) + strlen(dir));
     strcat(full_dir, home);
     strcat(full_dir, dir);
-    int resp = mkdir(full_dir, 0777);
+    mkdir(full_dir, 0777);
 }
 
 void print_usage() {
