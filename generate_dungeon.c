@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <string.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -321,7 +322,7 @@ void connect_rooms_at_indexes(int index1, int index2) {
     while(1) {
         int random_num = random_int(0, RAND_MAX, cur_x + cur_y) >> 3;
         int move_y = random_num % 2 == 0;
-        if (board[cur_y][cur_x].type != TYPE_ROCK) {
+        if (strcmp(board[cur_y][cur_x].type,  TYPE_ROCK) != 0) {
             if (cur_y != end_y) {
                 cur_y += y_incrementer;
             }
