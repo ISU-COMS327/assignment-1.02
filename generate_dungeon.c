@@ -196,13 +196,13 @@ void print_board() {
 }
 
 void print_cell(Board_Cell cell) {
-    if (cell.type == TYPE_ROCK) {
+    if (strcmp(cell.type, TYPE_ROCK) == 0) {
         printf(" ");
     }
-    else if (cell.type == TYPE_ROOM) {
+    else if (strcmp(cell.type, TYPE_ROOM) == 0) {
         printf(".");
     }
-    else if (cell.type == TYPE_CORRIDOR) {
+    else if (strcmp(cell.type, TYPE_CORRIDOR) == 0) {
         printf("#");
     }
     else {
