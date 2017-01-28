@@ -1,10 +1,12 @@
 #include <stdint.h>
+#include <errno.h>
 #include <string.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #define HEIGHT 105
 #define WIDTH 160
@@ -36,7 +38,7 @@ struct Room {
 };
 
 Board_Cell board[HEIGHT][WIDTH];
-struct Room rooms[MAX_NUMBER_OF_ROOMS];
+struct Room * rooms;
 
 int DO_SAVE = 0;
 int DO_LOAD = 0;
@@ -45,20 +47,20 @@ int NUMBER_OF_ROOMS = MIN_NUMBER_OF_ROOMS;
 int MAX_ROOM_WIDTH = DEFAULT_MAX_ROOM_WIDTH;
 int MAX_ROOM_HEIGHT = DEFAULT_MAX_ROOM_HEIGHT;
 
-
-
 void print_usage();
+void make_rlg_directory();
 void update_number_of_rooms();
 int random_int(int min_num, int max_num, int add_to_seed);
 void initialize_board();
 void initialize_immutable_rock();
 void load_board();
+void save_board();
 void print_board();
 void print_cell();
 void dig_rooms(int number_of_rooms_to_dig);
 void dig_room(int index, int recursive_iteration);
 int room_is_valid_at_index(int index);
-void add_rooms_to_board(struct Room rooms_to_add[]);
+void add_rooms_to_board();
 void dig_cooridors();
 void connect_rooms_at_indexes(int index1, int index2);
 
@@ -94,15 +96,22 @@ int main(int argc, char *args[]) {
     printf("Making %d rooms.\n", NUMBER_OF_ROOMS);
     initialize_board();
 
+    make_rlg_directory();
+
     if (DO_LOAD) {
         load_board();
     }
     else {
+        rooms = malloc(sizeof(struct Room) * NUMBER_OF_ROOMS);
         dig_rooms(NUMBER_OF_ROOMS);
         dig_cooridors();
     }
 
     print_board();
+
+    if (DO_SAVE) {
+        save_board();
+    }
 
     return 0;
 }
@@ -116,6 +125,15 @@ void update_number_of_rooms() {
         printf("Maximum number of rooms is %d\n", MAX_NUMBER_OF_ROOMS);
         NUMBER_OF_ROOMS = MAX_NUMBER_OF_ROOMS;
     }
+}
+
+void make_rlg_directory() {
+    char * home = getenv("HOME");
+    char dir[] = "/.rlg327/";
+    char * full_dir = malloc(strlen(home) + strlen(dir));
+    strcat(full_dir, home);
+    strcat(full_dir, dir);
+    int resp = mkdir(full_dir, 0777);
 }
 
 void print_usage() {
@@ -214,10 +232,9 @@ void load_board() {
     uint8_t width;
     uint8_t height;
     NUMBER_OF_ROOMS = (file_size - ftell(fp)) / 4;
-    struct Room my_rooms[NUMBER_OF_ROOMS];
+    rooms = malloc(sizeof(struct Room) * NUMBER_OF_ROOMS);
     int counter = 0;
     while(ftell(fp) != file_size) {
-        printf("%lu\n", (unsigned long) ftell(fp));
         fread(&start_x, 1, 1, fp);
         fread(&start_y, 1, 1, fp);
         fread(&width, 1, 1, fp);
@@ -228,10 +245,14 @@ void load_board() {
         room.start_y = start_y;
         room.end_x = start_x + width - 1;
         room.end_y = start_y + height - 1;
-        my_rooms[counter] = room;
+        rooms[counter] = room;
         counter ++;
     }
-    add_rooms_to_board(my_rooms);
+    add_rooms_to_board();
+}
+
+void save_board() {
+    printf("Saving\n");
 }
 
 void print_board() {
@@ -262,7 +283,7 @@ void dig_rooms(int number_of_rooms_to_dig) {
     for (int i = 0; i < number_of_rooms_to_dig; i++) {
         dig_room(i, 0);
     }
-    add_rooms_to_board(rooms);
+    add_rooms_to_board();
 }
 
 void dig_room(int index, int recursive_iteration) {
@@ -326,7 +347,7 @@ int room_is_valid_at_index(int index) {
     return 1;
 }
 
-void add_rooms_to_board(struct Room rooms[]) {
+void add_rooms_to_board() {
     Board_Cell cell;
     cell.type = TYPE_ROOM;
     cell.hardness = ROOM;
